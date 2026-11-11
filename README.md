@@ -2,6 +2,15 @@
 
 구조·규칙: 노션 03 디렉토리 구조, 06 API 규칙. 이전 Node 코드는 `legacy-node/` (참고용, 실행 안 함).
 
+## 현재 상태 (2026-11-11)
+| 영역 | 내용 | 확인 |
+|---|---|---|
+| 전환 | Node(Express) → Spring Boot 3.5 / Java 21. 옛 코드는 `legacy-node/` | — |
+| DB | Flyway `V1__init.sql` = ERD v1.2 main (22 tables) | 로컬 Postgres 적용 ✅ |
+| 공통 | 내부 키 필터, 공통 에러 응답, `/api/health` (DB 확인 포함) | `./gradlew build` ✅, health ✅ |
+| 내부 API | `/internal/pipeline/events·news` (멱등 게시), `/internal/catalog/anime·streaming·names` | 키 있으면 200 / 없으면 401 ✅ |
+| 남은 것 | auth/user (JWT·OAuth), 서비스 API(`/api/**`), admin, job, CI | — |
+
 ## 로컬 실행
 ```bash
 cp .env.example .env            # 값 채우기 (커밋 금지)
