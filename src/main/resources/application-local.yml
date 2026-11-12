@@ -1,0 +1,11 @@
+# 로컬 개발: docker compose 로 Postgres 띄우고 실행. SQL 로그 켬
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+logging:
+  level:
+    org.hibernate.SQL: debug
+    com.miroyiro: debug

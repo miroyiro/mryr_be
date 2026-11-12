@@ -1,0 +1,17 @@
+# 로컬 개발용 Postgres (main DB). 실행: docker compose up -d  → .env 의 DB_URL 로 접속
+# scrap 은 별도 DB(miroyiro_scrap) — scrap 레포의 docker-compose.dev.yml 사용
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: miroyiro
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: change-me
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

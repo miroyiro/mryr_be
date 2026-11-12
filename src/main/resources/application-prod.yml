@@ -1,0 +1,8 @@
+# 운영 (AWS EC2 + RDS). 값은 전부 환경변수로 주입
+logging:
+  level:
+    root: info
+management:
+  endpoint:
+    health:
+      show-details: never
