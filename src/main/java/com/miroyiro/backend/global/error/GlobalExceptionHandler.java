@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -47,6 +48,37 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.CONFLICT, "constraint violation");
     }
 
+   @ExceptionHandler(ResponseStatusException.class)
+    ResponseEntity<ErrorResponse> responseStatus(ResponseStatusException e) {
+        log.warn("HTTP error: {} - {}", e.getStatusCode(), e.getReason());
+
+        ErrorCode code;
+
+        switch (e.getStatusCode().value()) {
+            case 400 -> code = ErrorCode.INVALID_REQUEST;
+            case 401 -> code = ErrorCode.UNAUTHORIZED;
+            case 403 -> code = ErrorCode.FORBIDDEN;
+            case 404 -> code = ErrorCode.NOT_FOUND;
+            case 409 -> code = ErrorCode.CONFLICT;
+            case 502 -> code = ErrorCode.BAD_GATEWAY;
+            case 503 -> code = ErrorCode.SERVICE_UNAVAILABLE;
+            default -> {
+                return ResponseEntity
+                        .status(e.getStatusCode())
+                        .body(ErrorResponse.of(
+                                ErrorCode.INTERNAL_ERROR,
+                                "요청 처리 중 오류가 발생했습니다"
+                        ));
+            }
+        }
+
+        return respond(
+                code,
+                e.getReason() != null
+                        ? e.getReason()
+                        : code.defaultMessage()
+        );
+    }
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponse> unknown(Exception e) {
         log.error("unhandled", e);
