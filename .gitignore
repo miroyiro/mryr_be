@@ -16,6 +16,9 @@ out/
 .env.*
 !.env.example
 
+*.pem
+*.key
+
 # --- legacy node ---
 node_modules/
 dist/
