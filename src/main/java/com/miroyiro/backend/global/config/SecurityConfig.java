@@ -3,7 +3,8 @@ package com.miroyiro.backend.global.config;
 import com.miroyiro.backend.global.security.internal.InternalKeyFilter;
 import com.miroyiro.backend.global.security.jwt.JwtAuthenticationFilter;
 
-import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
@@ -28,15 +29,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.net.URI;
-import java.util.List;
-import java.util.Set;
-
 @Configuration
 public class SecurityConfig {
-
-    private static final Set<String> ALLOWED_OAUTH_PROVIDERS =
-            Set.of("google", "kakao", "naver");
 
     @Bean
     SecurityFilterChain securityFilterChain(
@@ -46,39 +40,65 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
-            // 기존 설정 유지: Stateless JWT 인증
+            // Stateless JWT 인증
             .csrf(AbstractHttpConfigurer::disable)
 
-            // 기존 CORS 설정 사용
+            // CORS 설정
             .cors(cors -> {})
 
             // 기본 인증 및 로그인 폼 비활성화
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
 
-            // 서버 세션을 사용하지 않음
+            // 서버 세션 사용하지 않음
             .sessionManagement(session ->
                 session.sessionCreationPolicy(
                     SessionCreationPolicy.STATELESS
                 )
             )
 
-            // 인증되지 않은 요청은 401 반환
-            .exceptionHandling(exception ->
-                exception.authenticationEntryPoint(
+            // 인증 및 권한 예외 처리
+            .exceptionHandling(exception -> exception
+
+                // 인증되지 않은 사용자: 401
+                .authenticationEntryPoint(
                     new HttpStatusEntryPoint(
                         HttpStatus.UNAUTHORIZED
                     )
                 )
+
+                // 인증됐지만 권한이 없는 사용자: 403
+                .accessDeniedHandler((request, response, e) -> {
+                    response.setStatus(
+                        HttpServletResponse.SC_FORBIDDEN
+                    );
+
+                    response.setContentType(
+                        "application/json"
+                    );
+
+                    response.setCharacterEncoding("UTF-8");
+
+                    response.getWriter().write(
+                        """
+                        {
+                            "error": {
+                                "code": "FORBIDDEN",
+                                "message": "접근 권한이 없습니다."
+                            }
+                        }
+                        """
+                    );
+                })
             )
 
-            // 기존 내부 API 인증 필터 유지
+            // 내부 API 인증 필터
             .addFilterBefore(
                 internalKeyFilter,
                 UsernamePasswordAuthenticationFilter.class
             )
 
-            // JWT 인증 필터 추가
+            // JWT 인증 필터
             .addFilterBefore(
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class
@@ -86,7 +106,12 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // 1. 내부 API: InternalKeyFilter에서 검증
+                // 오류 처리 과정의 재인증 방지
+                .dispatcherTypeMatchers(
+                    DispatcherType.ERROR
+                ).permitAll()
+
+                // 1. 내부 API
                 .requestMatchers("/internal/**").permitAll()
 
                 // 2. Health Check 공개
@@ -95,27 +120,20 @@ public class SecurityConfig {
                     "/actuator/health/**"
                 ).permitAll()
 
-                // 3. 이메일 회원가입 및 로그인 공개
+                // 3. 회원가입 및 로그인 공개
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/signup",
                     "/api/auth/login"
                 ).permitAll()
 
-                // 4. Refresh Token 재발급: 쿠키로 인증
+                // 4. Refresh Token 재발급
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/refresh"
                 ).permitAll()
 
-                // 5. OAuth 로그인 시작 및 콜백 공개
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/auth/{provider}",
-                    "/api/auth/{provider}/callback"
-                ).permitAll()
-
-                // 6. 로그인 필수 API
+                // 5. 로그인 필수 API
                 .requestMatchers(
                     HttpMethod.GET,
                     "/api/auth/me"
@@ -126,16 +144,46 @@ public class SecurityConfig {
                     "/api/auth/logout"
                 ).authenticated()
 
-                // 7. 나머지 인증 API는 허용하지 않음
+                // 6. OAuth 로그인 및 콜백 공개
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/auth/google",
+                    "/api/auth/google/callback",
+                    "/api/auth/kakao",
+                    "/api/auth/kakao/callback",
+                    "/api/auth/naver",
+                    "/api/auth/naver/callback"
+                ).permitAll()
+
+                // 7. 나머지 인증 API 차단
                 .requestMatchers("/api/auth/**").denyAll()
 
                 // 8. 관리자 API
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**")
+                .hasRole("ADMIN")
 
-                // 9. 기존 팀 정책 유지
+                // 9. 아티스트 상세 조회 공개
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/artists/{id}"
+                ).permitAll()
+
+                // 10. 아티스트 팔로우
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/artists/{id}/follow"
+                ).authenticated()
+
+                // 11. 아티스트 언팔로우
+                .requestMatchers(
+                    HttpMethod.DELETE,
+                    "/api/artists/{id}/follow"
+                ).authenticated()
+
+                // 12. 기존 팀 정책 유지
                 .requestMatchers("/api/**").permitAll()
 
-                // 10. 나머지 경로 차단
+                // 13. 나머지 경로 차단
                 .anyRequest().denyAll()
             );
 
