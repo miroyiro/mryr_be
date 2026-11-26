@@ -180,6 +180,12 @@ public class SecurityConfig {
                     "/api/artists/{id}/follow"
                 ).authenticated()
 
+                // 캘린더 API - 로그인 필수
+                .requestMatchers(
+                        "/api/calendar",
+                        "/api/calendar/**"
+                ).authenticated()
+
                 // 12. 기존 팀 정책 유지
                 .requestMatchers("/api/**").permitAll()
 
